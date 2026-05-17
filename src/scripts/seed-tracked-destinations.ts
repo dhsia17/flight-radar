@@ -17,15 +17,80 @@ interface SeedTrackedDestinationRow {
   maxStops?: number | null;
   currencyCode: string;
   locale: string;
+  priority: "high" | "medium" | "low";
+  /** Per-route alert threshold in SGD. NULL = use global env var threshold. */
+  priceThresholdSgd?: number | null;
+  /** Typical/average round-trip price in SGD based on market research (mid-2025/2026). */
+  typicalPriceSgd?: number | null;
 }
 
-// Singapore (SIN) → Southeast Asia routes - Economy Round Trip
-// All destinations within ~5 hours flight time from Singapore
-// Price alert tiers (set via PRICE_ALERT_THRESHOLD_SGD / URGENT_ALERT_THRESHOLD_SGD env vars):
-//   Normal alert: < 300 SGD (~10,000 TWD)
-//   Urgent alert: < 150 SGD (~5,000 TWD)
+// ─────────────────────────────────────────────────────────────────────────────
+// Singapore (SIN) routes — Economy Round Trip
+// Typical prices sourced from Google Flights / Skyscanner / Trip.com (2025-2026)
+// Scoring formula (in scanner): score = clamp(150 - round(current / typical * 100), 0, 100)
+//   score ≥ 90 → 🔥 exceptional deal   70–89 → 🟢 good   40–69 → 🟡 average   < 40 → 🔴 expensive
+// ─────────────────────────────────────────────────────────────────────────────
 const seedRows: SeedTrackedDestinationRow[] = [
-  // ── Vietnam ──
+
+  // ══ HIGH PRIORITY ══════════════════════════════════════════════════════════
+
+  {
+    id: "sin-tpe-rt-econ",
+    originAirportCode: "SIN",
+    destinationAirportCode: "TPE",
+    destinationCity: "Taipei",
+    destinationCountry: "Taiwan",
+    tripType: "round_trip",
+    cabinClass: "economy",
+    departureDateFrom: "2026-07-01",
+    departureDateTo: "2026-12-31",
+    returnDateFrom: "2026-07-08",
+    returnDateTo: "2027-01-07",
+    maxStops: 1,
+    currencyCode: "SGD",
+    locale: "en-SG",
+    priority: "high",
+    priceThresholdSgd: 200,
+    typicalPriceSgd: 280,
+  },
+  {
+    id: "sin-bkk-rt-econ",
+    originAirportCode: "SIN",
+    destinationAirportCode: "BKK",
+    destinationCity: "Bangkok",
+    destinationCountry: "Thailand",
+    tripType: "round_trip",
+    cabinClass: "economy",
+    departureDateFrom: "2026-07-01",
+    departureDateTo: "2026-12-31",
+    returnDateFrom: "2026-07-05",
+    returnDateTo: "2027-01-07",
+    maxStops: 1,
+    currencyCode: "SGD",
+    locale: "en-SG",
+    priority: "high",
+    priceThresholdSgd: 130,
+    typicalPriceSgd: 180,
+  },
+  {
+    id: "sin-dps-rt-econ",
+    originAirportCode: "SIN",
+    destinationAirportCode: "DPS",
+    destinationCity: "Bali",
+    destinationCountry: "Indonesia",
+    tripType: "round_trip",
+    cabinClass: "economy",
+    departureDateFrom: "2026-07-01",
+    departureDateTo: "2026-12-31",
+    returnDateFrom: "2026-07-06",
+    returnDateTo: "2027-01-07",
+    maxStops: 1,
+    currencyCode: "SGD",
+    locale: "en-SG",
+    priority: "high",
+    priceThresholdSgd: 140,
+    typicalPriceSgd: 200,
+  },
   {
     id: "sin-sgn-rt-econ",
     originAirportCode: "SIN",
@@ -40,8 +105,14 @@ const seedRows: SeedTrackedDestinationRow[] = [
     returnDateTo: "2027-01-07",
     maxStops: 1,
     currencyCode: "SGD",
-    locale: "en-SG"
+    locale: "en-SG",
+    priority: "high",
+    priceThresholdSgd: 130,
+    typicalPriceSgd: 180,
   },
+
+  // ══ MEDIUM PRIORITY ════════════════════════════════════════════════════════
+
   {
     id: "sin-han-rt-econ",
     originAirportCode: "SIN",
@@ -52,18 +123,21 @@ const seedRows: SeedTrackedDestinationRow[] = [
     cabinClass: "economy",
     departureDateFrom: "2026-07-01",
     departureDateTo: "2026-12-31",
-    returnDateFrom: "2026-07-05",
+    returnDateFrom: "2026-07-06",
     returnDateTo: "2027-01-07",
     maxStops: 1,
     currencyCode: "SGD",
-    locale: "en-SG"
+    locale: "en-SG",
+    priority: "medium",
+    priceThresholdSgd: 140,
+    typicalPriceSgd: 190,
   },
   {
-    id: "sin-dad-rt-econ",
+    id: "sin-hkg-rt-econ",
     originAirportCode: "SIN",
-    destinationAirportCode: "DAD",
-    destinationCity: "Da Nang",
-    destinationCountry: "Vietnam",
+    destinationAirportCode: "HKG",
+    destinationCity: "Hong Kong",
+    destinationCountry: "Hong Kong",
     tripType: "round_trip",
     cabinClass: "economy",
     departureDateFrom: "2026-07-01",
@@ -72,96 +146,16 @@ const seedRows: SeedTrackedDestinationRow[] = [
     returnDateTo: "2027-01-07",
     maxStops: 1,
     currencyCode: "SGD",
-    locale: "en-SG"
+    locale: "en-SG",
+    priority: "medium",
+    priceThresholdSgd: 160,
+    typicalPriceSgd: 220,
   },
   {
-    id: "sin-pqc-rt-econ",
+    id: "sin-hkt-rt-econ",
     originAirportCode: "SIN",
-    destinationAirportCode: "PQC",
-    destinationCity: "Phu Quoc",
-    destinationCountry: "Vietnam",
-    tripType: "round_trip",
-    cabinClass: "economy",
-    departureDateFrom: "2026-07-01",
-    departureDateTo: "2026-12-31",
-    returnDateFrom: "2026-07-05",
-    returnDateTo: "2027-01-07",
-    maxStops: 1,
-    currencyCode: "SGD",
-    locale: "en-SG"
-  },
-  // ── Indonesia ──
-  {
-    id: "sin-dps-rt-econ",
-    originAirportCode: "SIN",
-    destinationAirportCode: "DPS",
-    destinationCity: "Bali",
-    destinationCountry: "Indonesia",
-    tripType: "round_trip",
-    cabinClass: "economy",
-    departureDateFrom: "2026-07-01",
-    departureDateTo: "2026-12-31",
-    returnDateFrom: "2026-07-05",
-    returnDateTo: "2027-01-07",
-    maxStops: 1,
-    currencyCode: "SGD",
-    locale: "en-SG"
-  },
-  {
-    id: "sin-cgk-rt-econ",
-    originAirportCode: "SIN",
-    destinationAirportCode: "CGK",
-    destinationCity: "Jakarta",
-    destinationCountry: "Indonesia",
-    tripType: "round_trip",
-    cabinClass: "economy",
-    departureDateFrom: "2026-07-01",
-    departureDateTo: "2026-12-31",
-    returnDateFrom: "2026-07-04",
-    returnDateTo: "2027-01-07",
-    maxStops: 1,
-    currencyCode: "SGD",
-    locale: "en-SG"
-  },
-  // ── Laos ──
-  {
-    id: "sin-vte-rt-econ",
-    originAirportCode: "SIN",
-    destinationAirportCode: "VTE",
-    destinationCity: "Vientiane",
-    destinationCountry: "Laos",
-    tripType: "round_trip",
-    cabinClass: "economy",
-    departureDateFrom: "2026-07-01",
-    departureDateTo: "2026-12-31",
-    returnDateFrom: "2026-07-05",
-    returnDateTo: "2027-01-07",
-    maxStops: 1,
-    currencyCode: "SGD",
-    locale: "en-SG"
-  },
-  // ── Thailand ──
-  {
-    id: "sin-bkk-rt-econ",
-    originAirportCode: "SIN",
-    destinationAirportCode: "BKK",
-    destinationCity: "Bangkok",
-    destinationCountry: "Thailand",
-    tripType: "round_trip",
-    cabinClass: "economy",
-    departureDateFrom: "2026-07-01",
-    departureDateTo: "2026-12-31",
-    returnDateFrom: "2026-07-04",
-    returnDateTo: "2027-01-07",
-    maxStops: 1,
-    currencyCode: "SGD",
-    locale: "en-SG"
-  },
-  {
-    id: "sin-cnx-rt-econ",
-    originAirportCode: "SIN",
-    destinationAirportCode: "CNX",
-    destinationCity: "Chiang Mai",
+    destinationAirportCode: "HKT",
+    destinationCity: "Phuket",
     destinationCountry: "Thailand",
     tripType: "round_trip",
     cabinClass: "economy",
@@ -171,9 +165,11 @@ const seedRows: SeedTrackedDestinationRow[] = [
     returnDateTo: "2027-01-07",
     maxStops: 1,
     currencyCode: "SGD",
-    locale: "en-SG"
+    locale: "en-SG",
+    priority: "medium",
+    priceThresholdSgd: 120,
+    typicalPriceSgd: 170,
   },
-  // ── Malaysia ──
   {
     id: "sin-kul-rt-econ",
     originAirportCode: "SIN",
@@ -188,9 +184,87 @@ const seedRows: SeedTrackedDestinationRow[] = [
     returnDateTo: "2027-01-07",
     maxStops: 0,
     currencyCode: "SGD",
-    locale: "en-SG"
+    locale: "en-SG",
+    priority: "medium",
+    priceThresholdSgd: 55,
+    typicalPriceSgd: 80,
   },
-  // ── Philippines ──
+  {
+    id: "sin-mnl-rt-econ",
+    originAirportCode: "SIN",
+    destinationAirportCode: "MNL",
+    destinationCity: "Manila",
+    destinationCountry: "Philippines",
+    tripType: "round_trip",
+    cabinClass: "economy",
+    departureDateFrom: "2026-07-01",
+    departureDateTo: "2026-12-31",
+    returnDateFrom: "2026-07-06",
+    returnDateTo: "2027-01-07",
+    maxStops: 1,
+    currencyCode: "SGD",
+    locale: "en-SG",
+    priority: "medium",
+    priceThresholdSgd: 140,
+    typicalPriceSgd: 190,
+  },
+  {
+    id: "sin-rep-rt-econ",
+    originAirportCode: "SIN",
+    destinationAirportCode: "REP",
+    destinationCity: "Siem Reap",
+    destinationCountry: "Cambodia",
+    tripType: "round_trip",
+    cabinClass: "economy",
+    departureDateFrom: "2026-07-01",
+    departureDateTo: "2026-12-31",
+    returnDateFrom: "2026-07-05",
+    returnDateTo: "2027-01-07",
+    maxStops: 1,
+    currencyCode: "SGD",
+    locale: "en-SG",
+    priority: "medium",
+    priceThresholdSgd: 180,
+    typicalPriceSgd: 250,
+  },
+  {
+    id: "sin-dad-rt-econ",
+    originAirportCode: "SIN",
+    destinationAirportCode: "DAD",
+    destinationCity: "Da Nang",
+    destinationCountry: "Vietnam",
+    tripType: "round_trip",
+    cabinClass: "economy",
+    departureDateFrom: "2026-07-01",
+    departureDateTo: "2026-12-31",
+    returnDateFrom: "2026-07-06",
+    returnDateTo: "2027-01-07",
+    maxStops: 1,
+    currencyCode: "SGD",
+    locale: "en-SG",
+    priority: "medium",
+    priceThresholdSgd: 160,
+    typicalPriceSgd: 220,
+  },
+  {
+    id: "sin-cnx-rt-econ",
+    originAirportCode: "SIN",
+    destinationAirportCode: "CNX",
+    destinationCity: "Chiang Mai",
+    destinationCountry: "Thailand",
+    tripType: "round_trip",
+    cabinClass: "economy",
+    departureDateFrom: "2026-07-01",
+    departureDateTo: "2026-12-31",
+    returnDateFrom: "2026-07-06",
+    returnDateTo: "2027-01-07",
+    maxStops: 1,
+    currencyCode: "SGD",
+    locale: "en-SG",
+    priority: "medium",
+    priceThresholdSgd: 130,
+    typicalPriceSgd: 180,
+  },
   {
     id: "sin-ceb-rt-econ",
     originAirportCode: "SIN",
@@ -201,12 +275,189 @@ const seedRows: SeedTrackedDestinationRow[] = [
     cabinClass: "economy",
     departureDateFrom: "2026-07-01",
     departureDateTo: "2026-12-31",
+    returnDateFrom: "2026-07-06",
+    returnDateTo: "2027-01-07",
+    maxStops: 1,
+    currencyCode: "SGD",
+    locale: "en-SG",
+    priority: "medium",
+    priceThresholdSgd: 170,
+    typicalPriceSgd: 240,
+  },
+  {
+    id: "sin-mle-rt-econ",
+    originAirportCode: "SIN",
+    destinationAirportCode: "MLE",
+    destinationCity: "Malé",
+    destinationCountry: "Maldives",
+    tripType: "round_trip",
+    cabinClass: "economy",
+    departureDateFrom: "2026-07-01",
+    departureDateTo: "2026-12-31",
+    returnDateFrom: "2026-07-08",
+    returnDateTo: "2027-01-07",
+    maxStops: 1,
+    currencyCode: "SGD",
+    locale: "en-SG",
+    priority: "medium",
+    priceThresholdSgd: 380,
+    typicalPriceSgd: 550,
+  },
+  {
+    id: "sin-cmb-rt-econ",
+    originAirportCode: "SIN",
+    destinationAirportCode: "CMB",
+    destinationCity: "Colombo",
+    destinationCountry: "Sri Lanka",
+    tripType: "round_trip",
+    cabinClass: "economy",
+    departureDateFrom: "2026-07-01",
+    departureDateTo: "2026-12-31",
+    returnDateFrom: "2026-07-07",
+    returnDateTo: "2027-01-07",
+    maxStops: 1,
+    currencyCode: "SGD",
+    locale: "en-SG",
+    priority: "medium",
+    priceThresholdSgd: 180,
+    typicalPriceSgd: 250,
+  },
+  {
+    id: "sin-kmg-rt-econ",
+    originAirportCode: "SIN",
+    destinationAirportCode: "KMG",
+    destinationCity: "Kunming",
+    destinationCountry: "China",
+    tripType: "round_trip",
+    cabinClass: "economy",
+    departureDateFrom: "2026-07-01",
+    departureDateTo: "2026-12-31",
+    returnDateFrom: "2026-07-08",
+    returnDateTo: "2027-01-07",
+    maxStops: 1,
+    currencyCode: "SGD",
+    locale: "en-SG",
+    priority: "medium",
+    priceThresholdSgd: 270,
+    typicalPriceSgd: 390,
+  },
+
+  // ══ LOW PRIORITY ═══════════════════════════════════════════════════════════
+
+  {
+    id: "sin-pqc-rt-econ",
+    originAirportCode: "SIN",
+    destinationAirportCode: "PQC",
+    destinationCity: "Phu Quoc",
+    destinationCountry: "Vietnam",
+    tripType: "round_trip",
+    cabinClass: "economy",
+    departureDateFrom: "2026-07-01",
+    departureDateTo: "2026-12-31",
+    returnDateFrom: "2026-07-06",
+    returnDateTo: "2027-01-07",
+    maxStops: 1,
+    currencyCode: "SGD",
+    locale: "en-SG",
+    priority: "low",
+    priceThresholdSgd: 150,
+    typicalPriceSgd: 220,
+  },
+  {
+    id: "sin-cgk-rt-econ",
+    originAirportCode: "SIN",
+    destinationAirportCode: "CGK",
+    destinationCity: "Jakarta",
+    destinationCountry: "Indonesia",
+    tripType: "round_trip",
+    cabinClass: "economy",
+    departureDateFrom: "2026-07-01",
+    departureDateTo: "2026-12-31",
     returnDateFrom: "2026-07-05",
     returnDateTo: "2027-01-07",
     maxStops: 1,
     currencyCode: "SGD",
-    locale: "en-SG"
-  }
+    locale: "en-SG",
+    priority: "low",
+    priceThresholdSgd: 90,
+    typicalPriceSgd: 130,
+  },
+  {
+    id: "sin-vte-rt-econ",
+    originAirportCode: "SIN",
+    destinationAirportCode: "VTE",
+    destinationCity: "Vientiane",
+    destinationCountry: "Laos",
+    tripType: "round_trip",
+    cabinClass: "economy",
+    departureDateFrom: "2026-07-01",
+    departureDateTo: "2026-12-31",
+    returnDateFrom: "2026-07-06",
+    returnDateTo: "2027-01-07",
+    maxStops: 1,
+    currencyCode: "SGD",
+    locale: "en-SG",
+    priority: "low",
+    priceThresholdSgd: 220,
+    typicalPriceSgd: 300,
+  },
+  {
+    id: "sin-rgn-rt-econ",
+    originAirportCode: "SIN",
+    destinationAirportCode: "RGN",
+    destinationCity: "Yangon",
+    destinationCountry: "Myanmar",
+    tripType: "round_trip",
+    cabinClass: "economy",
+    departureDateFrom: "2026-07-01",
+    departureDateTo: "2026-12-31",
+    returnDateFrom: "2026-07-06",
+    returnDateTo: "2027-01-07",
+    maxStops: 1,
+    currencyCode: "SGD",
+    locale: "en-SG",
+    priority: "low",
+    priceThresholdSgd: 190,
+    typicalPriceSgd: 260,
+  },
+  {
+    id: "sin-xmn-rt-econ",
+    originAirportCode: "SIN",
+    destinationAirportCode: "XMN",
+    destinationCity: "Xiamen",
+    destinationCountry: "China",
+    tripType: "round_trip",
+    cabinClass: "economy",
+    departureDateFrom: "2026-07-01",
+    departureDateTo: "2026-12-31",
+    returnDateFrom: "2026-07-08",
+    returnDateTo: "2027-01-07",
+    maxStops: 1,
+    currencyCode: "SGD",
+    locale: "en-SG",
+    priority: "low",
+    priceThresholdSgd: 250,
+    typicalPriceSgd: 360,
+  },
+  {
+    id: "sin-pnh-rt-econ",
+    originAirportCode: "SIN",
+    destinationAirportCode: "PNH",
+    destinationCity: "Phnom Penh",
+    destinationCountry: "Cambodia",
+    tripType: "round_trip",
+    cabinClass: "economy",
+    departureDateFrom: "2026-07-01",
+    departureDateTo: "2026-12-31",
+    returnDateFrom: "2026-07-06",
+    returnDateTo: "2027-01-07",
+    maxStops: 1,
+    currencyCode: "SGD",
+    locale: "en-SG",
+    priority: "low",
+    priceThresholdSgd: 220,
+    typicalPriceSgd: 300,
+  },
 ];
 
 async function main(): Promise<void> {
@@ -233,8 +484,11 @@ async function main(): Promise<void> {
           currency_code,
           locale,
           is_active,
+          priority,
+          price_threshold_sgd,
+          typical_price_sgd,
           updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, CURRENT_TIMESTAMP)
       `,
       args: [
         row.id,
@@ -250,26 +504,29 @@ async function main(): Promise<void> {
         row.returnDateTo ?? null,
         typeof row.maxStops === "number" ? row.maxStops : null,
         row.currencyCode,
-        row.locale
-      ]
+        row.locale,
+        row.priority,
+        row.priceThresholdSgd ?? null,
+        row.typicalPriceSgd ?? null,
+      ],
     });
   }
 
-  // Remove any old routes that are no longer in the seed list
-  const activeIds = seedRows.map(r => `'${r.id}'`).join(", ");
+  // Deactivate any routes that are no longer in the seed list
+  const activeIds = seedRows.map((r) => `'${r.id}'`).join(", ");
   await client.execute({
     sql: `UPDATE tracked_destinations SET is_active = 0 WHERE id NOT IN (${activeIds})`,
-    args: []
+    args: [],
   });
 
   const activeDestinations = await repository.listActiveTrackedDestinations();
 
-  console.log(`[seed-tracked-destinations] inserted or updated ${seedRows.length} rows`);
-  console.log(`[seed-tracked-destinations] active tracked destinations: ${activeDestinations.length}`);
+  console.log(`[seed-tracked-destinations] upserted ${seedRows.length} rows`);
+  console.log(`[seed-tracked-destinations] active routes: ${activeDestinations.length}`);
 
   for (const destination of activeDestinations) {
     console.log(
-      `- ${destination.id}: ${destination.originAirportCode} -> ${destination.destinationAirportCode} (${destination.cabinClass})`
+      `- ${destination.id}: ${destination.originAirportCode} → ${destination.destinationAirportCode} (${destination.cabinClass})`
     );
   }
 
