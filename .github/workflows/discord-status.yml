@@ -1,0 +1,106 @@
+name: Discord Status & Config
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: '要執行的動作'
+        required: true
+        default: 'status'
+        type: choice
+        options:
+          - status
+          - update-budget
+          - update-dates
+      budget_sgd:
+        description: '價格上限 (SGD)，action=update-budget 時填入，例如: 450'
+        required: false
+        default: ''
+      date_from:
+        description: '出發日期起（YYYY-MM-DD），action=update-dates 時填入'
+        required: false
+        default: ''
+      date_to:
+        description: '出發日期迄（YYYY-MM-DD），action=update-dates 時填入'
+        required: false
+        default: ''
+
+jobs:
+  discord-status:
+    runs-on: ubuntu-latest
+    env:
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+    steps:
+      - name: Post status to Discord
+        if: ${{ github.event.inputs.action == 'status' }}
+        run: |
+          curl -s -X POST "$DISCORD_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "username": "Flight Radar 🛫",
+              "embeds": [{
+                "title": "📊 系統狀態總覽",
+                "color": 3447003,
+                "description": "以下是目前的機票追蹤設定",
+                "fields": [
+                  {"name": "✈️ 出發地", "value": "新加坡 (SIN)", "inline": true},
+                  {"name": "💺 艙等", "value": "經濟艙（來回）", "inline": true},
+                  {"name": "📅 出發日期範圍", "value": "2026-07-01 ～ 2026-12-31", "inline": false},
+                  {"name": "🗺️ 追蹤中的 10 條航線", "value": "🇹🇼 台北 (TPE)\n🇯🇵 東京 (NRT)\n🇯🇵 大阪 (KIX)\n🇹🇭 曼谷 (BKK)\n🇦🇺 雪梨 (SYD)\n🇦🇺 墨爾本 (MEL)\n🇨🇳 上海 (PVG)\n🇨🇳 北京 (PEK)\n🇮🇩 雅加達 (CGK)\n🇭🇰 香港 (HKG)", "inline": false},
+                  {"name": "💰 價格門檻", "value": "尚未設定（推送所有找到的票價）\n建議設定：450 SGD ≈ 15,000 TWD", "inline": false},
+                  {"name": "⏱️ 掃描頻率", "value": "🔍 一般票價：每 12 小時自動掃一次\n📰 商務艙優惠：每 45 分鐘掃一次", "inline": false},
+                  {"name": "⚙️ 如何調整設定", "value": "前往 GitHub Actions → Discord Status & Config → Run workflow\n可設定：action=update-budget 或 action=update-dates", "inline": false}
+                ],
+                "footer": {"text": "Flight Radar • github.com/dhsia17/flight-radar"}
+              }]
+            }'
+          echo "Status posted to Discord"
+
+      - name: Update budget notification
+        if: ${{ github.event.inputs.action == 'update-budget' }}
+        run: |
+          BUDGET="${{ github.event.inputs.budget_sgd }}"
+          if [ -z "$BUDGET" ]; then
+            echo "Error: budget_sgd is required"
+            exit 1
+          fi
+          curl -s -X POST "$DISCORD_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"username\": \"Flight Radar 🛫\",
+              \"embeds\": [{
+                \"title\": \"💰 價格門檻已更新\",
+                \"color\": 5763719,
+                \"description\": \"注意：更新資料庫門檻需要修改 seed 腳本並重新執行 Setup workflow\",
+                \"fields\": [
+                  {\"name\": \"新的價格上限\", \"value\": \"${BUDGET} SGD\", \"inline\": true},
+                  {\"name\": \"約合台幣\", \"value\": \"$(echo \"scale=0; $BUDGET * 23\" | bc) TWD\", \"inline\": true},
+                  {\"name\": \"下一步\", \"value\": \"請前往 GitHub 修改 seed 腳本加入 priceAlertThreshold 欄位，然後重新執行 Setup workflow\", \"inline\": false}
+                ],
+                \"footer\": {\"text\": \"Flight Radar\"}
+              }]
+            }"
+          echo "Budget update notification posted"
+
+      - name: Update dates notification
+        if: ${{ github.event.inputs.action == 'update-dates' }}
+        run: |
+          FROM="${{ github.event.inputs.date_from }}"
+          TO="${{ github.event.inputs.date_to }}"
+          curl -s -X POST "$DISCORD_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"username\": \"Flight Radar 🛫\",
+              \"embeds\": [{
+                \"title\": \"📅 日期設定提醒\",
+                \"color\": 16776960,
+                \"description\": \"要更新日期範圍，需要修改 seed 腳本並重新執行 Setup workflow\",
+                \"fields\": [
+                  {\"name\": \"希望設定的出發日期\", \"value\": \"${FROM} ～ ${TO}\", \"inline\": false},
+                  {\"name\": \"操作步驟\", \"value\": \"1. 前往 GitHub → src/scripts/seed-tracked-destinations.ts\\n2. 修改 departureDateFrom / departureDateTo\\n3. 執行 Setup workflow\", \"inline\": false}
+                ],
+                \"footer\": {\"text\": \"Flight Radar\"}
+              }]
+            }"
+          echo "Date update notification posted"
