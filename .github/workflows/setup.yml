@@ -7,6 +7,14 @@ jobs:
   setup:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      NODE_ENV: production
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DATABASE_AUTH_TOKEN: ${{ secrets.DATABASE_AUTH_TOKEN }}
+      SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
+      SCRAPERAPI_KEY: ${{ secrets.SCRAPERAPI_KEY }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      RSS_FEED_URLS: ${{ secrets.RSS_FEED_URLS }}
 
     steps:
       - name: Checkout code
@@ -25,15 +33,7 @@ jobs:
         run: npm run build
 
       - name: Initialize database (run migrations)
-        env:
-          NODE_ENV: production
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DATABASE_AUTH_TOKEN: ${{ secrets.DATABASE_AUTH_TOKEN }}
         run: npm run init:database
 
       - name: Seed tracked destinations (Singapore routes)
-        env:
-          NODE_ENV: production
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DATABASE_AUTH_TOKEN: ${{ secrets.DATABASE_AUTH_TOKEN }}
         run: npm run seed:tracked-destinations
