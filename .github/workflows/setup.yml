@@ -3,38 +3,37 @@ name: Setup Database & Seed Destinations
 on:
   workflow_dispatch: # Manual trigger only - run this once to initialize
 
-  jobs:
-    setup:
-        runs-on: ubuntu-latest
-            timeout-minutes: 15
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
 
-                steps:
-                      - name: Checkout code
-                              uses: actions/checkout@v4
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-                                    - name: Setup Node.js
-                                            uses: actions/setup-node@v4
-                                                    with:
-                                                              node-version: '22'
-                                                                        cache: 'npm'
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
 
-                                                                              - name: Install dependencies
-                                                                                      run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-                                                                                            - name: Build project
-                                                                                                    run: npm run build
-                                                                                                    
-                                                                                                          - name: Initialize database (run migrations)
-                                                                                                                  env:
-                                                                                                                            NODE_ENV: production
-                                                                                                                                      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-                                                                                                                                                DATABASE_AUTH_TOKEN: ${{ secrets.DATABASE_AUTH_TOKEN }}
-                                                                                                                                                        run: npm run init:database
-                                                                                                                                                        
-                                                                                                                                                              - name: Seed tracked destinations (Singapore routes)
-                                                                                                                                                                      env:
-                                                                                                                                                                                NODE_ENV: production
-                                                                                                                                                                                          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-                                                                                                                                                                                                    DATABASE_AUTH_TOKEN: ${{ secrets.DATABASE_AUTH_TOKEN }}
-                                                                                                                                                                                                            run: npm run seed:tracked-destinations
-                                                                                                                                                                                                            
+      - name: Build project
+        run: npm run build
+
+      - name: Initialize database (run migrations)
+        env:
+          NODE_ENV: production
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_AUTH_TOKEN: ${{ secrets.DATABASE_AUTH_TOKEN }}
+        run: npm run init:database
+
+      - name: Seed tracked destinations (Singapore routes)
+        env:
+          NODE_ENV: production
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_AUTH_TOKEN: ${{ secrets.DATABASE_AUTH_TOKEN }}
+        run: npm run seed:tracked-destinations
