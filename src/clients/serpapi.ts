@@ -56,7 +56,7 @@ export function createSerpApiClient(config: SerpApiClientConfig): SerpApiClient 
       if (!response.ok) {
         const errorText = await response.text().catch(() => "");
         throw new Error(
-          `SerpApi request failed with status ${response.status} url=${requestUrl} body=${errorText}`
+          `SerpApi request failed with status ${response.status} url=${requestUrl.replace(/api_key=[^&]+/, "api_key=REDACTED")} body=${errorText}`
         );
       }
 
