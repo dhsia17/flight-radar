@@ -104,32 +104,70 @@ export function createTursoClient(config: TursoConnectionConfig): DatabaseClient
 export function createTursoRepository(client: DatabaseClient): TursoRepository {
   return {
     async listActiveTrackedDestinations(): Promise<TrackedDestination[]> {
-      const result = await client.execute({
-        sql: `
-          SELECT
-            id,
-            origin_airport_code,
-            destination_airport_code,
-            destination_city,
-            destination_country,
-            trip_type,
-            cabin_class,
-            departure_date_from,
-            departure_date_to,
-            return_date_from,
-            return_date_to,
-            max_stops,
-            currency_code,
-            locale,
-            is_active
-          FROM tracked_destinations
-          WHERE is_active = 1
-          ORDER BY origin_airport_code, destination_airport_code, id
-        `,
-        args: []
-      });
+// SCAN_PRIORITY env var (set by GitHub Actions workflows) filters by route priority
+const scanPriority = (process.env['SCAN_PRIORITY'] ?? '').toLowerCase();
+const priorityFilter = ['high', 'medium', 'low'].includes(scanPriority) ? scanPriority : null;
 
-      return result.rows.map((row) => trackedDestinationSchema.parse({
+if (priorityFilter) {
+console.log(`[repository] SCAN_PRIORITY=${priorityFilter.toUpperCase()} — filtering routes`);
+} else {
+console.log('[repository] No SCAN_PRIORITY — scanning all active routes');
+}
+
+const result = await client.execute(
+priorityFilter
+? {
+sql: `
+SELECT
+id,
+origin_airport_code,
+destination_airport_code,
+destination_city,
+destination_country,
+trip_type,
+cabin_class,
+departure_date_from,
+departure_date_to,
+return_date_from,
+return_date_to,
+max_stops,
+currency_code,
+locale,
+is_active
+FROM tracked_destinations
+WHERE is_active = 1
+AND priority = ?
+ORDER BY origin_airport_code, destination_airport_code, id
+`,
+args: [priorityFilter]
+}
+: {
+sql: `
+SELECT
+id,
+origin_airport_code,
+destination_airport_code,
+destination_city,
+destination_country,
+trip_type,
+cabin_class,
+departure_date_from,
+departure_date_to,
+return_date_from,
+return_date_to,
+max_stops,
+currency_code,
+locale,
+is_active
+FROM tracked_destinations
+WHERE is_active = 1
+ORDER BY origin_airport_code, destination_airport_code, id
+`,
+args: []
+}
+);
+
+return result.rows.map((row) => trackedDestinationSchema.parse({
         id: asString(row.id),
         originAirportCode: asString(row.origin_airport_code),
         destinationAirportCode: asString(row.destination_airport_code),
