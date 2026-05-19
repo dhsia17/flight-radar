@@ -17,14 +17,35 @@ function buildGoogleFlightsUrl(fare: NormalizedFareObservation): string {
     economy: 1, premium_economy: 2, business: 3, first: 4
   };
   const e = cabinMap[fare.cabinClass] ?? 1;
-  const c = fare.currencyCode;
   const o = fare.originAirportCode;
   const d = fare.destinationAirportCode;
   const dep = fare.departDate ?? "";
   if (fare.tripType === "round_trip" && fare.returnDate) {
-    return `https://www.google.com/flights#flt=${o}.${d}.${dep}*${d}.${o}.${fare.returnDate};c:${c};e:${e};sd:1;t:f`;
+    return `https://www.google.com/flights#flt=${o}.${d}.${dep}*${d}.${o}.${fare.returnDate};c:${fare.currencyCode};e:${e};sd:1;t:f`;
   }
-  return `https://www.google.com/flights#flt=${o}.${d}.${dep};c:${c};e:${e};sd:1;t:o`;
+  return `https://www.google.com/flights#flt=${o}.${d}.${dep};c:${fare.currencyCode};e:${e};sd:1;t:o`;
+}
+
+// Format date: "2026-05-22" -> "22 May 2026"
+function fmtDateEn(d: string | null | undefined): string {
+  if (!d) return "—";
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const [y, m, day] = d.split("-");
+  return `${parseInt(day)} ${months[parseInt(m) - 1]} ${y}`;
+}
+
+// Format date: "2026-05-22" -> "2026年5月22日"
+function fmtDateZh(d: string | null | undefined): string {
+  if (!d) return "—";
+  const [y, m, day] = d.split("-");
+  return `${y}年${parseInt(m)}月${parseInt(day)}日`;
+}
+
+// Night count between two dates
+function nightCount(dep: string | null | undefined, ret: string | null | undefined): string {
+  if (!dep || !ret) return "";
+  const diff = (new Date(ret).getTime() - new Date(dep).getTime()) / 86400000;
+  return isNaN(diff) ? "" : ` · ${Math.round(diff)} nights`;
 }
 
 // ── English embed ──────────────────────────────────────────────────────────
@@ -37,40 +58,52 @@ export function buildNormalFareEmbedEn(
   const dest   = getAirportInfo(fare.destinationAirportCode);
 
   const originLabel = origin.countryEn
-    ? `${origin.cityEn}, ${origin.countryEn} (${fare.originAirportCode})`
+    ? `${origin.cityEn} (${fare.originAirportCode})`
     : fare.originAirportCode;
   const destLabel = dest.countryEn
     ? `${dest.cityEn}, ${dest.countryEn} (${fare.destinationAirportCode})`
     : fare.destinationAirportCode;
 
   const bookingUrl = fare.deepLink ?? buildGoogleFlightsUrl(fare);
+
   const tripLabel  = fare.tripType === "round_trip" ? "Round Trip" : "One Way";
   const cabinLabel = fare.cabinClass.replace(/_/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase());
+  const nights     = fare.tripType === "round_trip" ? nightCount(fare.departDate, fare.returnDate) : "";
+  const dateStr    = fare.tripType === "round_trip" && fare.returnDate
+    ? `${fmtDateEn(fare.departDate)} → ${fmtDateEn(fare.returnDate)}${nights}`
+    : fmtDateEn(fare.departDate);
+
+  const isTopThree = typeof comparison.thirdLowestPriceAmountMinor === "number";
 
   return {
-    title: `✈️ ${originLabel} → ${destLabel}`,
-    description: buildDescriptionEn(comparison),
+    title: `✈️  ${originLabel}  →  ${destLabel}`,
+    description: `${tripLabel}  ·  ${cabinLabel}`,
     url: bookingUrl,
-    color: 0x2ecc71,
+    color: isTopThree ? 0xe74c3c : 0x2ecc71,
     fields: [
-      { name: "💰 Price",  value: formatMoney(fare.currencyCode, fare.priceAmountMinor), inline: true },
-      { name: "🛫 Trip",   value: tripLabel,  inline: true },
-      { name: "💺 Cabin",  value: cabinLabel, inline: true },
-      { name: "📅 Depart", value: fare.departDate ?? "—", inline: true },
-      { name: "📅 Return", value: fare.returnDate ?? "—", inline: true },
-      { name: "​",    value: "​",   inline: true },
-      { name: "📊 Price vs History", value: buildPriceComparisonEn(fare, comparison), inline: false },
-      { name: "🔗 Book",   value: `[Search on Google Flights →](${bookingUrl})`, inline: false },
+      {
+        name: "💰  Price",
+        value: `**${formatMoney(fare.currencyCode, fare.priceAmountMinor)}**`,
+        inline: false
+      },
+      {
+        name: "📅  Date",
+        value: `**${dateStr}**`,
+        inline: false
+      },
+      {
+        name: "📊  vs History",
+        value: buildPriceComparisonEn(fare, comparison),
+        inline: false
+      },
+      {
+        name: "🔗  Book",
+        value: `[Open Google Flights →](${bookingUrl})`,
+        inline: false
+      },
     ],
     timestamp: fare.observedAt
   };
-}
-
-function buildDescriptionEn(comparison: NormalFarePriceComparison): string {
-  if (typeof comparison.thirdLowestPriceAmountMinor === "number") {
-    return "🎉 This fare entered the **historical top 3** for this route!";
-  }
-  return "New fare found while historical baseline is still being built.";
 }
 
 function buildPriceComparisonEn(
@@ -80,13 +113,13 @@ function buildPriceComparisonEn(
   const lines: string[] = [];
   if (typeof comparison.historicalLowestPriceAmountMinor === "number") {
     const delta = fare.priceAmountMinor - comparison.historicalLowestPriceAmountMinor;
-    lines.push(`Lowest seen: ${formatMoney(fare.currencyCode, comparison.historicalLowestPriceAmountMinor)} (${formatMoney(fare.currencyCode, Math.abs(delta))} ${delta <= 0 ? "below" : "above"})`);
+    lines.push(`Lowest seen: ${formatMoney(fare.currencyCode, comparison.historicalLowestPriceAmountMinor)} (${formatMoney(fare.currencyCode, Math.abs(delta))} ${delta <= 0 ? "below ✅" : "above"})`);
   }
   if (typeof comparison.thirdLowestPriceAmountMinor === "number") {
     const delta = comparison.thirdLowestPriceAmountMinor - fare.priceAmountMinor;
     const pct = comparison.thirdLowestPriceAmountMinor > 0
       ? ((delta / comparison.thirdLowestPriceAmountMinor) * 100).toFixed(1) : "0.0";
-    lines.push(`Top-3 threshold: ${formatMoney(fare.currencyCode, comparison.thirdLowestPriceAmountMinor)} (${formatMoney(fare.currencyCode, Math.abs(delta))} cheaper, ${pct}% below)`);
+    lines.push(`🏆 Top-3 threshold: ${formatMoney(fare.currencyCode, comparison.thirdLowestPriceAmountMinor)} — **${pct}% below!**`);
   }
   return lines.length > 0 ? lines.join("\n") : "Not enough historical fares yet.";
 }
@@ -101,43 +134,62 @@ export function buildNormalFareEmbedZh(
   const dest   = getAirportInfo(fare.destinationAirportCode);
 
   const originLabel = origin.countryZh
-    ? `${origin.cityZh}，${origin.countryZh}（${fare.originAirportCode}）`
+    ? `${origin.cityZh}（${fare.originAirportCode}）`
     : fare.originAirportCode;
   const destLabel = dest.countryZh
     ? `${dest.cityZh}，${dest.countryZh}（${fare.destinationAirportCode}）`
     : fare.destinationAirportCode;
 
   const bookingUrl = fare.deepLink ?? buildGoogleFlightsUrl(fare);
+
   const tripLabel  = fare.tripType === "round_trip" ? "來回票" : "單程票";
   const cabinMap: Record<string, string> = {
     economy: "經濟艙", premium_economy: "豪華經濟艙",
     business: "商務艙", first: "頭等艙"
   };
+  const cabinLabel = cabinMap[fare.cabinClass] ?? fare.cabinClass;
+
+  const nightsZh   = fare.tripType === "round_trip" ? (() => {
+    const diff = !fare.departDate || !fare.returnDate ? NaN
+      : (new Date(fare.returnDate).getTime() - new Date(fare.departDate).getTime()) / 86400000;
+    return isNaN(diff) ? "" : ` · ${Math.round(diff)} 晚`;
+  })() : "";
+
+  const dateStr = fare.tripType === "round_trip" && fare.returnDate
+    ? `${fmtDateZh(fare.departDate)} → ${fmtDateZh(fare.returnDate)}${nightsZh}`
+    : fmtDateZh(fare.departDate);
+
+  const isTopThree = typeof comparison.thirdLowestPriceAmountMinor === "number";
 
   return {
-    title: `✈️ ${originLabel} → ${destLabel}`,
-    description: buildDescriptionZh(comparison),
+    title: `✈️  ${originLabel}  →  ${destLabel}`,
+    description: `${tripLabel}  ·  ${cabinLabel}`,
     url: bookingUrl,
-    color: 0x2ecc71,
+    color: isTopThree ? 0xe74c3c : 0x2ecc71,
     fields: [
-      { name: "💰 票價",  value: formatMoney(fare.currencyCode, fare.priceAmountMinor), inline: true },
-      { name: "🛫 行程",  value: tripLabel,  inline: true },
-      { name: "💺 艙等",  value: cabinMap[fare.cabinClass] ?? fare.cabinClass, inline: true },
-      { name: "📅 出發",  value: fare.departDate ?? "—", inline: true },
-      { name: "📅 回程",  value: fare.returnDate ?? "—", inline: true },
-      { name: "​",   value: "​",   inline: true },
-      { name: "📊 歷史比較", value: buildPriceComparisonZh(fare, comparison), inline: false },
-      { name: "🔗 訂票",  value: `[在 Google Flights 搜尋 →](${bookingUrl})`, inline: false },
+      {
+        name: "💰  票價",
+        value: `**${formatMoney(fare.currencyCode, fare.priceAmountMinor)}**`,
+        inline: false
+      },
+      {
+        name: "📅  日期",
+        value: `**${dateStr}**`,
+        inline: false
+      },
+      {
+        name: "📊  歷史比較",
+        value: buildPriceComparisonZh(fare, comparison),
+        inline: false
+      },
+      {
+        name: "🔗  訂票",
+        value: `[前往 Google Flights 查詢 →](${bookingUrl})`,
+        inline: false
+      },
     ],
     timestamp: fare.observedAt
   };
-}
-
-function buildDescriptionZh(comparison: NormalFarePriceComparison): string {
-  if (typeof comparison.thirdLowestPriceAmountMinor === "number") {
-    return "🎉 此票價進入該航線**歷史最低前三名**！";
-  }
-  return "尚在建立歷史基準，新票價已記錄。";
 }
 
 function buildPriceComparisonZh(
@@ -147,13 +199,13 @@ function buildPriceComparisonZh(
   const lines: string[] = [];
   if (typeof comparison.historicalLowestPriceAmountMinor === "number") {
     const delta = fare.priceAmountMinor - comparison.historicalLowestPriceAmountMinor;
-    lines.push(`歷史最低：${formatMoney(fare.currencyCode, comparison.historicalLowestPriceAmountMinor)}（${delta <= 0 ? "低於" : "高於"} ${formatMoney(fare.currencyCode, Math.abs(delta))}）`);
+    lines.push(`歷史最低：${formatMoney(fare.currencyCode, comparison.historicalLowestPriceAmountMinor)}（${delta <= 0 ? "低於 ✅" : "高於"} ${formatMoney(fare.currencyCode, Math.abs(delta))}）`);
   }
   if (typeof comparison.thirdLowestPriceAmountMinor === "number") {
     const delta = comparison.thirdLowestPriceAmountMinor - fare.priceAmountMinor;
     const pct = comparison.thirdLowestPriceAmountMinor > 0
       ? ((delta / comparison.thirdLowestPriceAmountMinor) * 100).toFixed(1) : "0.0";
-    lines.push(`前三門檻：${formatMoney(fare.currencyCode, comparison.thirdLowestPriceAmountMinor)}（便宜 ${formatMoney(fare.currencyCode, Math.abs(delta))}，低 ${pct}%）`);
+    lines.push(`🏆 前三名門檻：${formatMoney(fare.currencyCode, comparison.thirdLowestPriceAmountMinor)} — **低 ${pct}%！**`);
   }
   return lines.length > 0 ? lines.join("\n") : "尚無足夠歷史數據。";
 }
