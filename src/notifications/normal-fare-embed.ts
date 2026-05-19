@@ -6,27 +6,44 @@ export interface NormalFarePriceComparison {
   historicalLowestPriceAmountMinor?: number;
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+// ── Booking URL ────────────────────────────────────────────────────────────
+// Primary: SerpAPI's deep_link (contains correct Google entity IDs, always works)
+// Fallback: Skyscanner (accepts IATA codes directly, reliable deep-link format)
 
-function formatMoney(currencyCode: string, amountMinor: number): string {
-  return `${currencyCode} ${(amountMinor / 100).toFixed(2)}`;
-}
-
-function buildGoogleFlightsUrl(fare: NormalizedFareObservation): string {
-  const cabinMap: Record<string, number> = {
-    economy: 1, premium_economy: 2, business: 3, first: 4
+function buildSkyscannerUrl(fare: NormalizedFareObservation): string {
+  const o    = fare.originAirportCode.toLowerCase();
+  const d    = fare.destinationAirportCode.toLowerCase();
+  const curr = fare.currencyCode.toLowerCase();
+  const cabinMap: Record<string, string> = {
+    economy: "economy", premium_economy: "premiumeconomy",
+    business: "business", first: "first"
   };
-  const e = cabinMap[fare.cabinClass] ?? 1;
-  const o = fare.originAirportCode;
-  const d = fare.destinationAirportCode;
-  const dep = fare.departDate ?? "";
-  if (fare.tripType === "round_trip" && fare.returnDate) {
-    return `https://www.google.com/flights#flt=${o}.${d}.${dep}*${d}.${o}.${fare.returnDate};c:${fare.currencyCode};e:${e};sd:1;t:f`;
+  const cabin = cabinMap[fare.cabinClass] ?? "economy";
+
+  // Skyscanner date format: YYMMDD
+  function toSkyDate(iso: string | null | undefined): string {
+    if (!iso) return "";
+    const [y, m, day] = iso.split("-");
+    return `${y.slice(2)}${m}${day}`;
   }
-  return `https://www.google.com/flights#flt=${o}.${d}.${dep};c:${fare.currencyCode};e:${e};sd:1;t:o`;
+
+  const dep = toSkyDate(fare.departDate);
+  const ret = toSkyDate(fare.returnDate);
+
+  if (fare.tripType === "round_trip" && ret) {
+    return `https://www.skyscanner.com/transport/flights/${o}/${d}/${dep}/${ret}/?adults=1&cabinclass=${cabin}&currency=${curr}`;
+  }
+  return `https://www.skyscanner.com/transport/flights/${o}/${d}/${dep}/?adults=1&cabinclass=${cabin}&currency=${curr}`;
 }
 
-// Format date: "2026-05-22" -> "22 May 2026"
+function getBookingUrl(fare: NormalizedFareObservation): string {
+  // SerpAPI deepLink is the exact Google Flights URL for that search (has correct entity IDs).
+  // Only fall back to Skyscanner if deepLink is absent.
+  return fare.deepLink ?? buildSkyscannerUrl(fare);
+}
+
+// ── Date formatting ────────────────────────────────────────────────────────
+
 function fmtDateEn(d: string | null | undefined): string {
   if (!d) return "—";
   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -34,18 +51,22 @@ function fmtDateEn(d: string | null | undefined): string {
   return `${parseInt(day)} ${months[parseInt(m) - 1]} ${y}`;
 }
 
-// Format date: "2026-05-22" -> "2026年5月22日"
 function fmtDateZh(d: string | null | undefined): string {
   if (!d) return "—";
   const [y, m, day] = d.split("-");
   return `${y}年${parseInt(m)}月${parseInt(day)}日`;
 }
 
-// Night count between two dates
-function nightCount(dep: string | null | undefined, ret: string | null | undefined): string {
-  if (!dep || !ret) return "";
-  const diff = (new Date(ret).getTime() - new Date(dep).getTime()) / 86400000;
-  return isNaN(diff) ? "" : ` · ${Math.round(diff)} nights`;
+function nightsBetween(dep: string | null | undefined, ret: string | null | undefined): number | null {
+  if (!dep || !ret) return null;
+  const n = Math.round((new Date(ret).getTime() - new Date(dep).getTime()) / 86400000);
+  return isNaN(n) ? null : n;
+}
+
+// ── Money ──────────────────────────────────────────────────────────────────
+
+function formatMoney(currency: string, minor: number): string {
+  return `${currency} ${(minor / 100).toFixed(2)}`;
 }
 
 // ── English embed ──────────────────────────────────────────────────────────
@@ -56,6 +77,7 @@ export function buildNormalFareEmbedEn(
 ): DiscordEmbed {
   const origin = getAirportInfo(fare.originAirportCode);
   const dest   = getAirportInfo(fare.destinationAirportCode);
+  const url    = getBookingUrl(fare);
 
   const originLabel = origin.countryEn
     ? `${origin.cityEn} (${fare.originAirportCode})`
@@ -64,43 +86,36 @@ export function buildNormalFareEmbedEn(
     ? `${dest.cityEn}, ${dest.countryEn} (${fare.destinationAirportCode})`
     : fare.destinationAirportCode;
 
-  const bookingUrl = fare.deepLink ?? buildGoogleFlightsUrl(fare);
-
   const tripLabel  = fare.tripType === "round_trip" ? "Round Trip" : "One Way";
-  const cabinLabel = fare.cabinClass.replace(/_/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase());
-  const nights     = fare.tripType === "round_trip" ? nightCount(fare.departDate, fare.returnDate) : "";
-  const dateStr    = fare.tripType === "round_trip" && fare.returnDate
-    ? `${fmtDateEn(fare.departDate)} → ${fmtDateEn(fare.returnDate)}${nights}`
+  const cabinLabel = fare.cabinClass.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+  const nights  = nightsBetween(fare.departDate, fare.returnDate);
+  const nightsStr = nights !== null ? ` · ${nights} nights` : "";
+  const dateStr = fare.tripType === "round_trip" && fare.returnDate
+    ? `${fmtDateEn(fare.departDate)} → ${fmtDateEn(fare.returnDate)}${nightsStr}`
     : fmtDateEn(fare.departDate);
 
   const isTopThree = typeof comparison.thirdLowestPriceAmountMinor === "number";
+  const bookSite   = fare.deepLink ? "Google Flights" : "Skyscanner";
 
   return {
     title: `✈️  ${originLabel}  →  ${destLabel}`,
     description: `${tripLabel}  ·  ${cabinLabel}`,
-    url: bookingUrl,
+    url,
     color: isTopThree ? 0xe74c3c : 0x2ecc71,
     fields: [
-      {
-        name: "💰  Price",
+      { name: "💰  Price",
         value: `**${formatMoney(fare.currencyCode, fare.priceAmountMinor)}**`,
-        inline: false
-      },
-      {
-        name: "📅  Date",
+        inline: false },
+      { name: "📅  Date",
         value: `**${dateStr}**`,
-        inline: false
-      },
-      {
-        name: "📊  vs History",
+        inline: false },
+      { name: "📊  vs History",
         value: buildPriceComparisonEn(fare, comparison),
-        inline: false
-      },
-      {
-        name: "🔗  Book",
-        value: `[Open Google Flights →](${bookingUrl})`,
-        inline: false
-      },
+        inline: false },
+      { name: "🔗  Book",
+        value: `[Search on ${bookSite} →](${url})`,
+        inline: false },
     ],
     timestamp: fare.observedAt
   };
@@ -132,6 +147,7 @@ export function buildNormalFareEmbedZh(
 ): DiscordEmbed {
   const origin = getAirportInfo(fare.originAirportCode);
   const dest   = getAirportInfo(fare.destinationAirportCode);
+  const url    = getBookingUrl(fare);
 
   const originLabel = origin.countryZh
     ? `${origin.cityZh}（${fare.originAirportCode}）`
@@ -140,53 +156,39 @@ export function buildNormalFareEmbedZh(
     ? `${dest.cityZh}，${dest.countryZh}（${fare.destinationAirportCode}）`
     : fare.destinationAirportCode;
 
-  const bookingUrl = fare.deepLink ?? buildGoogleFlightsUrl(fare);
-
   const tripLabel  = fare.tripType === "round_trip" ? "來回票" : "單程票";
   const cabinMap: Record<string, string> = {
     economy: "經濟艙", premium_economy: "豪華經濟艙",
     business: "商務艙", first: "頭等艙"
   };
-  const cabinLabel = cabinMap[fare.cabinClass] ?? fare.cabinClass;
 
-  const nightsZh   = fare.tripType === "round_trip" ? (() => {
-    const diff = !fare.departDate || !fare.returnDate ? NaN
-      : (new Date(fare.returnDate).getTime() - new Date(fare.departDate).getTime()) / 86400000;
-    return isNaN(diff) ? "" : ` · ${Math.round(diff)} 晚`;
-  })() : "";
-
-  const dateStr = fare.tripType === "round_trip" && fare.returnDate
-    ? `${fmtDateZh(fare.departDate)} → ${fmtDateZh(fare.returnDate)}${nightsZh}`
+  const nights    = nightsBetween(fare.departDate, fare.returnDate);
+  const nightsStr = nights !== null ? ` · ${nights} 晚` : "";
+  const dateStr   = fare.tripType === "round_trip" && fare.returnDate
+    ? `${fmtDateZh(fare.departDate)} → ${fmtDateZh(fare.returnDate)}${nightsStr}`
     : fmtDateZh(fare.departDate);
 
   const isTopThree = typeof comparison.thirdLowestPriceAmountMinor === "number";
+  const bookSite   = fare.deepLink ? "Google Flights" : "Skyscanner";
 
   return {
     title: `✈️  ${originLabel}  →  ${destLabel}`,
-    description: `${tripLabel}  ·  ${cabinLabel}`,
-    url: bookingUrl,
+    description: `${tripLabel}  ·  ${cabinMap[fare.cabinClass] ?? fare.cabinClass}`,
+    url,
     color: isTopThree ? 0xe74c3c : 0x2ecc71,
     fields: [
-      {
-        name: "💰  票價",
+      { name: "💰  票價",
         value: `**${formatMoney(fare.currencyCode, fare.priceAmountMinor)}**`,
-        inline: false
-      },
-      {
-        name: "📅  日期",
+        inline: false },
+      { name: "📅  日期",
         value: `**${dateStr}**`,
-        inline: false
-      },
-      {
-        name: "📊  歷史比較",
+        inline: false },
+      { name: "📊  歷史比較",
         value: buildPriceComparisonZh(fare, comparison),
-        inline: false
-      },
-      {
-        name: "🔗  訂票",
-        value: `[前往 Google Flights 查詢 →](${bookingUrl})`,
-        inline: false
-      },
+        inline: false },
+      { name: "🔗  訂票",
+        value: `[前往 ${bookSite} 搜尋 →](${url})`,
+        inline: false },
     ],
     timestamp: fare.observedAt
   };
