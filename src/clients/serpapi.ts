@@ -45,6 +45,15 @@ export function createSerpApiClient(config: SerpApiClientConfig): SerpApiClient 
 
   return {
     async searchFlights(destination: TrackedDestination): Promise<SerpApiFlightResult[]> {
+      // Guard: SerpAPI requires return_date for round-trip (type=1).
+      // Skip routes that are round_trip but have no returnDateFrom set in DB.
+      if (destination.tripType === "round_trip" && !destination.returnDateFrom) {
+        console.warn(
+          `[serpapi] skipping ${destination.originAirportCode}→${destination.destinationAirportCode} (id=${destination.id}): round_trip route has no returnDateFrom — set a return date range in the dashboard`
+        );
+        return [];
+      }
+
       const requestUrl = buildSerpApiUrl(destination, config);
       const response = await fetchImpl(requestUrl, {
         method: "GET",
