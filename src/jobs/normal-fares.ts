@@ -2,7 +2,7 @@ import type { DiscordWebhookClient } from "../clients/discord.js";
 import type { FlightPriceRepository } from "../db/repositories.js";
 import type { SerpApiClient } from "../clients/serpapi.js";
 import { buildFareAlertFingerprint, qualifiesForTopThreeAlert } from "../logic/fare-ranking.js";
-import { buildNormalFareEmbed } from "../notifications/normal-fare-embed.js";
+import { buildNormalFareEmbedEn, buildNormalFareEmbedZh } from "../notifications/normal-fare-embed.js";
 import type { NormalizedFareObservation, SerpApiFlightResult, TrackedDestination } from "../types/domain.js";
 import { createStableId } from "../utils/id.js";
 
@@ -14,6 +14,7 @@ export interface NormalFaresJobDeps {
   repository: FlightPriceRepository;
   serpApiClient: SerpApiClient;
   discordClient: DiscordWebhookClient;
+  discordClientZh?: DiscordWebhookClient;
   normalizeObservation: (args: {
     trackedDestinationId: string;
     providerQueryKey: string;
@@ -66,10 +67,16 @@ export async function runNormalFaresJob(deps: NormalFaresJobDeps): Promise<void>
           .map((fare) => fare.priceAmountMinor)
           .sort((left, right) => left - right);
 
-        const { messageId } = await deps.discordClient.sendEmbed(buildNormalFareEmbed(observation, {
-          historicalLowestPriceAmountMinor: sortedHistoricalPrices[0],
-          thirdLowestPriceAmountMinor: sortedHistoricalPrices[2]
-        }));
+        const comparison = {
+        historicalLowestPriceAmountMinor: sortedHistoricalPrices[0],
+        thirdLowestPriceAmountMinor: sortedHistoricalPrices[2]
+      };
+
+      const { messageId } = await deps.discordClient.sendEmbed(buildNormalFareEmbedEn(observation, comparison));
+
+      if (deps.discordClientZh) {
+        await deps.discordClientZh.sendEmbed(buildNormalFareEmbedZh(observation, comparison));
+      }
 
         await deps.repository.recordFareAlert({
           id: createStableId("fare_alert", alertFingerprint),

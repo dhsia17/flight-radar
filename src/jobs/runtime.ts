@@ -49,6 +49,10 @@ export function createNormalFaresJobRunner(input: NodeJS.ProcessEnv = process.en
     webhookUrl: runtime.env.DISCORD_WEBHOOK_URL
   });
 
+  const discordClientZh = runtime.env.DISCORD_WEBHOOK_URL_ZH
+    ? createDiscordWebhookClient({ webhookUrl: runtime.env.DISCORD_WEBHOOK_URL_ZH })
+    : undefined;
+
   return createPersistentJobRunner({
     repository: runtime.repository,
     runner: {
@@ -57,6 +61,7 @@ export function createNormalFaresJobRunner(input: NodeJS.ProcessEnv = process.en
         repository: runtime.repository,
         serpApiClient,
         discordClient,
+        discordClientZh,
         normalizeObservation: buildSerpApiObservation
       })
     },
@@ -82,6 +87,10 @@ export function createBusinessDealsJobRunner(input: NodeJS.ProcessEnv = process.
   const discordClient = createDiscordWebhookClient({
     webhookUrl: runtime.env.DISCORD_WEBHOOK_URL
   });
+
+  const discordClientZh = runtime.env.DISCORD_WEBHOOK_URL_ZH
+    ? createDiscordWebhookClient({ webhookUrl: runtime.env.DISCORD_WEBHOOK_URL_ZH })
+    : undefined;
   const extractionClient = createOpenAiDealExtractionClient({
     apiKey: runtime.env.OPENAI_API_KEY,
     model: runtime.env.OPENAI_MODEL

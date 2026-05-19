@@ -14,6 +14,7 @@ export const environmentSchema = z.object({
   GROQ_API_KEY: z.string().min(1).optional(),
   RSS_FEED_URLS: z.string().default(""),
   DISCORD_WEBHOOK_URL: z.string().url(),
+  DISCORD_WEBHOOK_URL_ZH: z.string().url().optional(),
   BUSINESS_DEAL_THRESHOLD_GBP: z.coerce.number().int().positive().default(1000),
   BUSINESS_DEAL_MIN_CONFIDENCE: z.coerce.number().min(0).max(1).default(0.8),
   SCHEDULER_LEASE_DURATION_MS: z.coerce.number().int().positive().default(30 * 60 * 1000)
